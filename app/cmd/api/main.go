@@ -13,9 +13,13 @@ import (
 	"github.com/Faheema125/trading-platform/internal/database"
 	"github.com/Faheema125/trading-platform/internal/logging"
 	"github.com/Faheema125/trading-platform/internal/middleware"
+	"github.com/Faheema125/trading-platform/internal/queue"
 )
 
-var db *database.DB
+var (
+	db         *database.DB
+	natsClient *queue.Client
+)
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -31,6 +35,16 @@ func main() {
 	defer db.Close()
 
 	logging.Info(ctx, "database connected")
+
+	// Initialize NATS
+	natsClient, err = queue.New(ctx)
+	if err != nil {
+		logging.Error(ctx, "failed to connect to NATS", err)
+		os.Exit(1)
+	}
+	defer natsClient.Close()
+
+	logging.Info(ctx, "NATS connected")
 
 	// Set up routes
 	mux := http.NewServeMux()
@@ -112,7 +126,15 @@ func handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	logging.Info(ctx, "order created", logging.WithOrderID(order.ID))
 
-	// TODO: publish to NATS (will be added in worker commit)
+	// Publish to NATS for worker processing
+	err = natsClient.Publish(ctx, &queue.OrderMessage{
+		OrderID:   order.ID,
+		RequestID: logging.GetRequestID(ctx),
+	})
+	if err != nil {
+		logging.Error(ctx, "failed to publish to NATS", err, logging.WithOrderID(order.ID))
+		// Order is created but message failed — log it, don't fail the request
+	}
 
 	writeJSON(w, http.StatusCreated, map[string]string{"id": order.ID})
 }
@@ -138,7 +160,7 @@ func handleGetOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, order)
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
