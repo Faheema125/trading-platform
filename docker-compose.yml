@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+      POSTGRES_DB: trading
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./app/migrations/001_create_orders.sql:/docker-entrypoint-initdb.d/001_create_orders.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["--jetstream", "--store_dir", "/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - natsdata:/data
+    healthcheck:
+      test: ["CMD", "nats-server", "--signal", "ldm"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://trading:trading@postgres:5432/trading?sslmode=disable
+      NATS_URL: nats://nats:4222
+      PORT: "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    environment:
+      DATABASE_URL: postgres://trading:trading@postgres:5432/trading?sslmode=disable
+      NATS_URL: nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  natsdata:
