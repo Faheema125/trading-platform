@@ -104,12 +104,12 @@ module "rds" {
   environment                = "prod"
   vpc_id                     = module.vpc.vpc_id
   private_subnet_ids         = module.vpc.private_subnet_ids
-  instance_class             = "db.t3.small" # More power
+  vpc_cidr                   = "10.1.0.0/16"
+  instance_class             = "db.t3.small"
   allocated_storage          = 50
-  multi_az                   = true  # High availability
-  deletion_protection        = true  # Prevent accidental deletion
+  multi_az                   = true
+  deletion_protection        = true
   backup_retention_period    = 7
-  allowed_security_group_ids = [module.ecs.ecs_tasks_security_group_id]
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -126,39 +126,108 @@ module "alb" {
 }
 
 # ─────────────────────────────────────────────────────────────
-# ECS (API + Worker + NATS)
+# ECS Cluster (shared infrastructure)
 # ─────────────────────────────────────────────────────────────
 
-module "ecs" {
-  source = "../../modules/ecs"
+module "ecs_cluster" {
+  source = "../../modules/ecs-cluster"
 
-  environment    = "prod"
-  vpc_id         = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnet_ids
-  aws_region     = var.aws_region
+  environment = "prod"
+  vpc_id      = module.vpc.vpc_id
+  secret_arns = [module.rds.password_secret_arn]
+}
 
-  api_image    = var.api_image
-  worker_image = var.worker_image
+# ─────────────────────────────────────────────────────────────
+# ECS Services (each uses the reusable ecs-service module)
+# ─────────────────────────────────────────────────────────────
 
-  # Prod sizing — more resources, more replicas
-  api_cpu           = 512
-  api_memory        = 1024
-  worker_cpu        = 512
-  worker_memory     = 1024
-  nats_cpu          = 256
-  nats_memory       = 512
-  api_desired_count    = 2  # Multiple replicas for HA
-  worker_desired_count = 2
+module "nats" {
+  source = "../../modules/ecs-service"
 
-  # Database connection
-  database_host          = module.rds.address
-  database_name          = module.rds.db_name
-  database_username      = module.rds.username
-  db_password_secret_arn = module.rds.password_secret_arn
-  database_url_arn       = module.rds.password_secret_arn
+  environment        = "prod"
+  name               = "nats"
+  cluster_id         = module.ecs_cluster.cluster_id
+  image              = "nats:2.10-alpine"
+  cpu                = 256
+  memory             = 512
+  desired_count      = 1
+  subnet_ids         = module.vpc.private_subnet_ids
+  security_group_ids = [module.ecs_cluster.security_group_id]
+  execution_role_arn = module.ecs_cluster.execution_role_arn
+  aws_region         = var.aws_region
 
-  # ALB target group
-  target_group_arn = module.alb.target_group_arn
+  command       = ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+  port_mappings = [4222, 8222]
+
+  readonly_root_filesystem = false
+  enable_circuit_breaker   = false
+
+  enable_service_discovery        = true
+  service_discovery_namespace_id  = module.ecs_cluster.service_discovery_namespace_id
+}
+
+module "api" {
+  source = "../../modules/ecs-service"
+
+  environment        = "prod"
+  name               = "api"
+  cluster_id         = module.ecs_cluster.cluster_id
+  image              = var.api_image
+  cpu                = 512
+  memory             = 1024
+  desired_count      = 2
+  subnet_ids         = module.vpc.private_subnet_ids
+  security_group_ids = [module.ecs_cluster.security_group_id]
+  execution_role_arn = module.ecs_cluster.execution_role_arn
+  task_role_arn      = module.ecs_cluster.task_role_arn
+  aws_region         = var.aws_region
+
+  port_mappings = [8080]
+
+  environment_variables = [
+    { name = "PORT", value = "8080" },
+    { name = "NATS_URL", value = "nats://nats.prod.trading.local:4222" },
+    { name = "DATABASE_URL", value = "postgres://${module.rds.username}:PLACEHOLDER@${module.rds.address}/${module.rds.db_name}?sslmode=require" }
+  ]
+
+  secrets = [{ name = "DB_PASSWORD", valueFrom = module.rds.password_secret_arn }]
+
+  health_check = {
+    command     = ["CMD-SHELL", "wget --spider -q http://localhost:8080/health || exit 1"]
+    interval    = 15
+    timeout     = 5
+    retries     = 3
+    startPeriod = 10
+  }
+
+  target_group_arn       = module.alb.target_group_arn
+  enable_circuit_breaker = true
+}
+
+module "worker" {
+  source = "../../modules/ecs-service"
+
+  environment        = "prod"
+  name               = "worker"
+  cluster_id         = module.ecs_cluster.cluster_id
+  image              = var.worker_image
+  cpu                = 512
+  memory             = 1024
+  desired_count      = 2
+  subnet_ids         = module.vpc.private_subnet_ids
+  security_group_ids = [module.ecs_cluster.security_group_id]
+  execution_role_arn = module.ecs_cluster.execution_role_arn
+  task_role_arn      = module.ecs_cluster.task_role_arn
+  aws_region         = var.aws_region
+
+  environment_variables = [
+    { name = "NATS_URL", value = "nats://nats.prod.trading.local:4222" },
+    { name = "DATABASE_URL", value = "postgres://${module.rds.username}:PLACEHOLDER@${module.rds.address}/${module.rds.db_name}?sslmode=require" }
+  ]
+
+  secrets = [{ name = "DB_PASSWORD", valueFrom = module.rds.password_secret_arn }]
+
+  enable_circuit_breaker = true
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -168,14 +237,14 @@ module "ecs" {
 module "observability" {
   source = "../../modules/observability"
 
-  environment                = "prod"
-  alb_arn_suffix             = aws_lb_data.arn_suffix
-  api_target_group_arn_suffix = aws_tg_data.arn_suffix
-  ecs_cluster_name           = module.ecs.cluster_name
-  api_service_name           = module.ecs.api_service_name
-  worker_service_name        = module.ecs.worker_service_name
-  rds_instance_id            = "prod-trading-db"
-  alarm_email                = var.alarm_email
+  environment                 = "prod"
+  alb_arn_suffix              = module.alb.alb_arn_suffix
+  api_target_group_arn_suffix = module.alb.target_group_arn_suffix
+  ecs_cluster_name            = module.ecs_cluster.cluster_name
+  api_service_name            = module.api.service_name
+  worker_service_name         = module.worker.service_name
+  rds_instance_id             = "prod-trading-db"
+  alarm_email                 = var.alarm_email
 }
 
 # ─────────────────────────────────────────────────────────────

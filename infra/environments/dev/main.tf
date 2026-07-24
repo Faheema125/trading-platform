@@ -126,36 +126,108 @@ module "alb" {
 }
 
 # ─────────────────────────────────────────────────────────────
-# ECS (API + Worker + NATS)
+# ECS Cluster (shared infrastructure)
 # ─────────────────────────────────────────────────────────────
 
-module "ecs" {
-  source = "../../modules/ecs"
+module "ecs_cluster" {
+  source = "../../modules/ecs-cluster"
+
+  environment = "dev"
+  vpc_id      = module.vpc.vpc_id
+  secret_arns = [module.rds.password_secret_arn]
+}
+
+# ─────────────────────────────────────────────────────────────
+# ECS Services (each uses the reusable ecs-service module)
+# ─────────────────────────────────────────────────────────────
+
+module "nats" {
+  source = "../../modules/ecs-service"
 
   environment        = "dev"
-  vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnet_ids
+  name               = "nats"
+  cluster_id         = module.ecs_cluster.cluster_id
+  image              = "nats:2.10-alpine"
+  cpu                = 256
+  memory             = 512
+  desired_count      = 1
+  subnet_ids         = module.vpc.private_subnet_ids
+  security_group_ids = [module.ecs_cluster.security_group_id]
+  execution_role_arn = module.ecs_cluster.execution_role_arn
   aws_region         = var.aws_region
 
-  api_image    = var.api_image
-  worker_image = var.worker_image
+  command       = ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+  port_mappings = [4222, 8222]
 
-  api_cpu              = 256
-  api_memory           = 512
-  worker_cpu           = 256
-  worker_memory        = 512
-  nats_cpu             = 256
-  nats_memory          = 512
-  api_desired_count    = 1
-  worker_desired_count = 1
+  readonly_root_filesystem = false
+  enable_circuit_breaker   = false
 
-  database_host          = module.rds.address
-  database_name          = module.rds.db_name
-  database_username      = module.rds.username
-  db_password_secret_arn = module.rds.password_secret_arn
-  database_url_arn       = module.rds.password_secret_arn
+  enable_service_discovery        = true
+  service_discovery_namespace_id  = module.ecs_cluster.service_discovery_namespace_id
+}
 
-  target_group_arn = module.alb.target_group_arn
+module "api" {
+  source = "../../modules/ecs-service"
+
+  environment        = "dev"
+  name               = "api"
+  cluster_id         = module.ecs_cluster.cluster_id
+  image              = var.api_image
+  cpu                = 256
+  memory             = 512
+  desired_count      = 1
+  subnet_ids         = module.vpc.private_subnet_ids
+  security_group_ids = [module.ecs_cluster.security_group_id]
+  execution_role_arn = module.ecs_cluster.execution_role_arn
+  task_role_arn      = module.ecs_cluster.task_role_arn
+  aws_region         = var.aws_region
+
+  port_mappings = [8080]
+
+  environment_variables = [
+    { name = "PORT", value = "8080" },
+    { name = "NATS_URL", value = "nats://nats.dev.trading.local:4222" },
+    { name = "DATABASE_URL", value = "postgres://${module.rds.username}:PLACEHOLDER@${module.rds.address}/${module.rds.db_name}?sslmode=require" }
+  ]
+
+  secrets = [{ name = "DB_PASSWORD", valueFrom = module.rds.password_secret_arn }]
+
+  health_check = {
+    command     = ["CMD-SHELL", "wget --spider -q http://localhost:8080/health || exit 1"]
+    interval    = 15
+    timeout     = 5
+    retries     = 3
+    startPeriod = 10
+  }
+
+  target_group_arn       = module.alb.target_group_arn
+  enable_circuit_breaker = true
+}
+
+module "worker" {
+  source = "../../modules/ecs-service"
+
+  environment        = "dev"
+  name               = "worker"
+  cluster_id         = module.ecs_cluster.cluster_id
+  image              = var.worker_image
+  cpu                = 256
+  memory             = 512
+  desired_count      = 1
+  subnet_ids         = module.vpc.private_subnet_ids
+  security_group_ids = [module.ecs_cluster.security_group_id]
+  execution_role_arn = module.ecs_cluster.execution_role_arn
+  task_role_arn      = module.ecs_cluster.task_role_arn
+  aws_region         = var.aws_region
+
+  environment_variables = [
+    { name = "NATS_URL", value = "nats://nats.dev.trading.local:4222" },
+    { name = "DATABASE_URL", value = "postgres://${module.rds.username}:PLACEHOLDER@${module.rds.address}/${module.rds.db_name}?sslmode=require" }
+  ]
+
+  secrets = [{ name = "DB_PASSWORD", valueFrom = module.rds.password_secret_arn }]
+
+  enable_circuit_breaker = true
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -168,9 +240,9 @@ module "observability" {
   environment                 = "dev"
   alb_arn_suffix              = module.alb.alb_arn_suffix
   api_target_group_arn_suffix = module.alb.target_group_arn_suffix
-  ecs_cluster_name            = module.ecs.cluster_name
-  api_service_name            = module.ecs.api_service_name
-  worker_service_name         = module.ecs.worker_service_name
+  ecs_cluster_name            = module.ecs_cluster.cluster_name
+  api_service_name            = module.api.service_name
+  worker_service_name         = module.worker.service_name
   rds_instance_id             = "dev-trading-db"
   alarm_email                 = var.alarm_email
 }

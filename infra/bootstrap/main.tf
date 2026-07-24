@@ -303,7 +303,8 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "ec2:DeleteTags",
           "ec2:DescribeTags",
           "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeNetworkInterfaces"
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeAccountAttributes"
         ]
         Resource = "*"
       },
