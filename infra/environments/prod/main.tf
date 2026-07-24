@@ -47,9 +47,10 @@ variable "aws_region" {
   default = "us-east-1"
 }
 
-variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS"
+variable "domain_name" {
+  description = "Root domain"
   type        = string
+  default     = "platform-test.click"
 }
 
 variable "api_image" {
@@ -66,6 +67,18 @@ variable "alarm_email" {
   description = "Email for alarm notifications"
   type        = string
   default     = ""
+}
+
+# ─────────────────────────────────────────────────────────────
+# DNS / TLS Certificate
+# ─────────────────────────────────────────────────────────────
+
+module "dns" {
+  source = "../../modules/dns"
+
+  environment = "prod"
+  domain_name = var.domain_name
+  subdomain   = "prod"
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -109,7 +122,7 @@ module "alb" {
   environment       = "prod"
   vpc_id            = module.vpc.vpc_id
   public_subnet_ids = module.vpc.public_subnet_ids
-  certificate_arn   = var.certificate_arn
+  certificate_arn   = module.dns.certificate_arn
 }
 
 # ─────────────────────────────────────────────────────────────
