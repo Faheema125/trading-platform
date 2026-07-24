@@ -19,7 +19,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "trading-platform-tf-state-ACCOUNT_ID" # Replace after bootstrap
+    bucket         = "trading-platform-tf-state-424999960857"
     key            = "prod/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "trading-platform-tf-lock"

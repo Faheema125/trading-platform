@@ -43,6 +43,12 @@ variable "allowed_security_group_ids" {
   default     = []
 }
 
+variable "vpc_cidr" {
+  description = "VPC CIDR block (allow all traffic from within VPC on port 5432)"
+  type        = string
+  default     = ""
+}
+
 variable "multi_az" {
   description = "Enable Multi-AZ for high availability (true for prod)"
   type        = bool

@@ -66,6 +66,17 @@ resource "aws_security_group_rule" "rds_ingress" {
   security_group_id        = aws_security_group.rds.id
 }
 
+resource "aws_security_group_rule" "rds_ingress_cidr" {
+  count = var.vpc_cidr != "" ? 1 : 0
+
+  type              = "ingress"
+  from_port         = 5432
+  to_port           = 5432
+  protocol          = "tcp"
+  cidr_blocks       = [var.vpc_cidr]
+  security_group_id = aws_security_group.rds.id
+}
+
 # ─────────────────────────────────────────────────────────────
 # RDS Postgres Instance
 # ─────────────────────────────────────────────────────────────
