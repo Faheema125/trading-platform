@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Faheema125/trading-platform/internal/models"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,10 +16,16 @@ type DB struct {
 }
 
 // New creates a new database connection pool from DATABASE_URL env var.
+// If DB_PASSWORD is set, it replaces PLACEHOLDER in DATABASE_URL with the actual password.
 func New(ctx context.Context) (*DB, error) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
 		return nil, fmt.Errorf("DATABASE_URL environment variable is required")
+	}
+
+	// Replace placeholder with actual password from secrets
+	if password := os.Getenv("DB_PASSWORD"); password != "" {
+		url = strings.Replace(url, "PLACEHOLDER", password, 1)
 	}
 
 	pool, err := pgxpool.New(ctx, url)
@@ -26,7 +33,26 @@ func New(ctx context.Context) (*DB, error) {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
+	// Auto-run migrations
+	if err := runMigrations(ctx, pool); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	return &DB{Pool: pool}, nil
+}
+
+// runMigrations creates tables if they don't exist.
+func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `
+		CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+		CREATE TABLE IF NOT EXISTS orders (
+			id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			status     TEXT NOT NULL DEFAULT 'pending',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		);
+	`)
+	return err
 }
 
 // Ping checks if the database is reachable.
