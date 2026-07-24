@@ -297,6 +297,7 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "ec2:RevokeSecurityGroupIngress",
           "ec2:AuthorizeSecurityGroupEgress",
           "ec2:RevokeSecurityGroupEgress",
+          "ec2:DescribeSecurityGroupRules",
           "ec2:CreateTags",
           "ec2:DeleteTags",
           "ec2:DescribeTags",
