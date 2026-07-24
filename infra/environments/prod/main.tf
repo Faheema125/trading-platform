@@ -21,7 +21,7 @@ terraform {
   backend "s3" {
     bucket         = "trading-platform-tf-state-ACCOUNT_ID" # Replace after bootstrap
     key            = "prod/terraform.tfstate"
-    region         = "eu-west-1"
+    region         = "us-east-1"
     dynamodb_table = "trading-platform-tf-lock"
     encrypt        = true
   }
@@ -44,7 +44,7 @@ provider "aws" {
 # ─────────────────────────────────────────────────────────────
 
 variable "aws_region" {
-  default = "eu-west-1"
+  default = "us-east-1"
 }
 
 variable "certificate_arn" {
@@ -77,7 +77,7 @@ module "vpc" {
 
   environment        = "prod"
   vpc_cidr           = "10.1.0.0/16" # Different CIDR from dev
-  availability_zones = ["eu-west-1a", "eu-west-1b"]
+  availability_zones = ["us-east-1a", "us-east-1b"]
   single_nat_gateway = false # One NAT per AZ for resilience
 }
 
