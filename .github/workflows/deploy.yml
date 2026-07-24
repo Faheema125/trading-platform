@@ -2,9 +2,8 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -61,7 +60,7 @@ jobs:
           echo "image=$REGISTRY/$WORKER_IMAGE_NAME:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   deploy-dev:
-    name: Deploy Dev
+    name: Deploy to Dev
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -110,8 +109,8 @@ jobs:
             --services dev-worker
           echo "All services stable!"
 
-  plan-prod:
-    name: Plan Prod
+  deploy-prod:
+    name: Deploy to Prod (Plan only)
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'

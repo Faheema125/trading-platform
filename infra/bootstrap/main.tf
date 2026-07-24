@@ -209,7 +209,7 @@ resource "aws_iam_role" "github_actions" {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo}:*"
+          "token.actions.githubusercontent.com:sub" = "repo:Faheema125*trading-platform*"
         }
       }
     }]
@@ -278,6 +278,8 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "ec2:AllocateAddress",
           "ec2:ReleaseAddress",
           "ec2:DescribeAddresses",
+          "ec2:DescribeAddressesAttribute",
+          "ec2:DescribeVpcAttribute",
           "ec2:CreateNatGateway",
           "ec2:DeleteNatGateway",
           "ec2:DescribeNatGateways",
@@ -366,6 +368,8 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "iam:PassRole",
           "iam:TagRole",
           "iam:UntagRole",
+          "iam:TagPolicy",
+          "iam:UntagPolicy",
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
           "iam:AttachRolePolicy",
