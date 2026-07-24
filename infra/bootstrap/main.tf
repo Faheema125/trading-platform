@@ -344,7 +344,8 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "elasticloadbalancing:ModifyListener",
           "elasticloadbalancing:AddTags",
           "elasticloadbalancing:DescribeTags",
-          "elasticloadbalancing:SetSecurityGroups"
+          "elasticloadbalancing:SetSecurityGroups",
+          "elasticloadbalancing:DescribeListenerAttributes"
         ]
         Resource = "*"
       },
