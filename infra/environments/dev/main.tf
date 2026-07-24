@@ -192,14 +192,6 @@ module "api" {
 
   secrets = [{ name = "DB_PASSWORD", valueFrom = module.rds.password_secret_arn }]
 
-  health_check = {
-    command     = ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health || exit 1"]
-    interval    = 15
-    timeout     = 5
-    retries     = 3
-    startPeriod = 30
-  }
-
   target_group_arn       = module.alb.target_group_arn
   enable_circuit_breaker = true
 }
