@@ -270,6 +270,7 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "ec2:CreateSubnet",
           "ec2:DeleteSubnet",
           "ec2:DescribeSubnets",
+          "ec2:ModifySubnetAttribute",
           "ec2:CreateInternetGateway",
           "ec2:DeleteInternetGateway",
           "ec2:AttachInternetGateway",
@@ -360,6 +361,20 @@ resource "aws_iam_policy" "github_actions_deploy" {
         Resource = "*"
       },
       {
+        Sid    = "Route53"
+        Effect = "Allow"
+        Action = [
+          "route53:CreateHostedZone",
+          "route53:DeleteHostedZone",
+          "route53:GetHostedZone",
+          "route53:ListHostedZones",
+          "route53:ChangeResourceRecordSets",
+          "route53:ListResourceRecordSets",
+          "route53:GetChange"
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "IAM"
         Effect = "Allow"
         Action = [
@@ -382,7 +397,8 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "iam:ListPolicyVersions",
           "iam:CreatePolicyVersion",
           "iam:DeletePolicyVersion",
-          "iam:ListInstanceProfilesForRole"
+          "iam:ListInstanceProfilesForRole",
+          "iam:CreateServiceLinkedRole"
         ]
         Resource = "*"
       },
