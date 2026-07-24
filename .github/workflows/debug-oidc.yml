@@ -12,29 +12,38 @@ jobs:
   debug:
     runs-on: ubuntu-latest
     steps:
-      - name: Get OIDC Token and decode claims
+      - name: Get OIDC Token claims
         run: |
           TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-          echo "Token received (first 20 chars): ${TOKEN:0:20}..."
           
-          # Decode the JWT payload (middle part)
-          PAYLOAD=$(echo $TOKEN | cut -d'.' -f2 | base64 -d 2>/dev/null || echo $TOKEN | cut -d'.' -f2 | base64 --decode 2>/dev/null)
-          echo "=== OIDC Token Claims ==="
-          echo $PAYLOAD | jq .
-          echo ""
-          echo "=== Key fields ==="
-          echo "sub: $(echo $PAYLOAD | jq -r '.sub')"
-          echo "aud: $(echo $PAYLOAD | jq -r '.aud')"
-          echo "iss: $(echo $PAYLOAD | jq -r '.iss')"
-          echo "repository: $(echo $PAYLOAD | jq -r '.repository')"
+          # Decode payload without printing the full token
+          PAYLOAD=$(echo $TOKEN | cut -d'.' -f2 | tr '_-' '/+' | base64 -d 2>/dev/null)
+          
+          # Print only non-sensitive claims
+          echo "sub = $(echo $PAYLOAD | jq -r '.sub')"
+          echo "aud = $(echo $PAYLOAD | jq -r '.aud')"
+          echo "iss = $(echo $PAYLOAD | jq -r '.iss')"
+          echo "repository = $(echo $PAYLOAD | jq -r '.repository')"
+          echo "repository_owner = $(echo $PAYLOAD | jq -r '.repository_owner')"
+          echo "ref = $(echo $PAYLOAD | jq -r '.ref')"
+          echo "event_name = $(echo $PAYLOAD | jq -r '.event_name')"
+
+      - name: Print github context
+        run: |
+          echo "github.repository = ${{ github.repository }}"
+          echo "github.repository_owner = ${{ github.repository_owner }}"
+          echo "github.ref = ${{ github.ref }}"
+          echo "AWS_ROLE_ARN secret is set = ${{ secrets.AWS_ROLE_ARN != '' }}"
 
       - name: Try assume role
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
           audience: sts.amazonaws.com
 
-      - name: Verify
+      - name: Verify (if previous step succeeded)
+        continue-on-error: true
         run: aws sts get-caller-identity
