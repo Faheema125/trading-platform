@@ -32,53 +32,54 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph VPC["VPC (10.0.0.0/16)"]
-        subgraph PubSub["Public Subnets (us-east-1a, us-east-1b)"]
-            IGW[Internet Gateway]
-            ALB[Application Load Balancer]
-            NAT[NAT Gateway + Elastic IP]
-        end
-        
-        subgraph PrivSub["Private Subnets (us-east-1a, us-east-1b)"]
-            subgraph ECS["ECS Cluster (Fargate)"]
-                API[API Service<br/>0.25 vCPU / 512 MB]
-                Worker[Worker Service<br/>0.25 vCPU / 512 MB]
-                NATS[NATS Service<br/>0.25 vCPU / 512 MB]
-            end
-            RDS[(RDS PostgreSQL<br/>db.t3.micro)]
-        end
-    end
-    
-    subgraph AWS Services
+    Internet((Internet)) --> IGW
+
+    subgraph AWS["AWS Account"]
         ECR[ECR Repositories]
         SM[Secrets Manager]
         CW[CloudWatch Logs + Alarms]
         SNS[SNS Alarm Topic]
-        CM[Cloud Map<br/>Service Discovery]
+        CM[Cloud Map Service Discovery]
         ACM[ACM Certificate]
         R53[Route53 DNS]
+        
+        subgraph VPC["VPC (10.0.0.0/16)"]
+            subgraph PubSub["Public Subnets (us-east-1a, us-east-1b)"]
+                IGW[Internet Gateway]
+                ALB[Application Load Balancer]
+                TG[Target Group<br/>Health Check /health]
+                NAT[NAT Gateway + Elastic IP]
+            end
+            
+            subgraph PrivSub["Private Subnets (us-east-1a, us-east-1b)"]
+                subgraph ECS["ECS Cluster (Fargate)"]
+                    API[API Service<br/>0.25 vCPU / 512 MB]
+                    NATS[NATS Service<br/>0.25 vCPU / 512 MB]
+                    Worker[Worker Service<br/>0.25 vCPU / 512 MB]
+                end
+                RDS[(RDS PostgreSQL<br/>db.t3.micro)]
+            end
+        end
     end
-    
-    subgraph CI/CD
+
+    subgraph CICD["CI/CD"]
         GH[GitHub Actions] -->|OIDC| IAM[IAM Deploy Role]
-        IAM --> ECR
-        IAM --> ECS
     end
-    
-    Internet((Internet)) --> IGW --> ALB
-    ALB -->|Target Group<br/>Health Check /health| API
-    API --> NATS
-    NATS --> Worker
+
+    IGW --> ALB
+    ALB --> TG --> API
+    API --> NATS --> Worker
     API --> RDS
     Worker --> RDS
-    ECS -.-> NAT -.-> IGW
-    ECS --> SM
-    ECS --> CW
+    ECS -.->|outbound| NAT -.-> IGW
+    ECS -.-> SM
+    ECS -.-> CW
     CW --> SNS
-    API -.-> CM
-    NATS -.-> CM
     R53 --> ALB
     ACM --> ALB
+    NATS -.-> CM
+    IAM --> ECR
+    IAM --> ECS
 ```
 
 All application tasks run in private subnets with no public IPs. The ALB terminates TLS in public subnets and forwards traffic to the API. NATS provides async messaging via Cloud Map service discovery DNS.
