@@ -19,7 +19,7 @@ variable "worker_image" {
 variable "alarm_email" {
   description = "Email for alarm notifications"
   type        = string
-  default     = ""
+  default     = "faheema0213@gmail.com"
 }
 
 variable "domain_name" {
