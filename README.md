@@ -201,7 +201,7 @@ Dev stack runs under **$50/month**. See [docs/COST_ESTIMATE.md](docs/COST_ESTIMA
 
 ## AI Usage Disclosure
 
-AI tools (Kiro / Claude) were used as a development accelerator for:
+Kiro (AI-powered IDE) was used as a development accelerator for:
 - Terraform module scaffolding and debugging IAM permission errors
 - Dockerfile optimization
 - CI/CD workflow iteration
