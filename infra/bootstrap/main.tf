@@ -434,6 +434,7 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "sns:SetTopicAttributes",
           "sns:Subscribe",
           "sns:Unsubscribe",
+          "sns:Publish",
           "sns:ListTagsForResource",
           "sns:TagResource",
           "sns:GetSubscriptionAttributes"
