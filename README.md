@@ -193,11 +193,12 @@ Dev stack runs under **$50/month**. See [docs/COST_ESTIMATE.md](docs/COST_ESTIMA
 
 1. **Auto-scaling** — CPU/memory-based scaling policies for API and worker tasks
 2. **WAF** — AWS WAF on the ALB for rate limiting and common attack protection
-3. **Terraform remote state per environment** — separate state locking per workspace with proper access controls
-4. **Database migrations in CI** — run migrations as a one-off ECS task before deploying new code
-5. **Prometheus + Grafana** — richer application metrics beyond CloudWatch (p99 latencies, queue depth, custom business metrics)
+3. **Vulnerability & code quality scanning** — Trivy/Snyk for container image CVE scanning, SonarQube for static analysis and code quality gates in the pipeline
+4. **Deployment notifications** — Slack integration with deployment details (who deployed, which version, commit/ticket ID, success/failure status, environment)
+5. **Database migrations in CI** — run migrations as a one-off ECS task before deploying new code
 6. **Prod approval gate** — GitHub Environments with required reviewers before prod apply
-7. **Secrets rotation** — automatic RDS password rotation via Secrets Manager Lambda
+7. **Prometheus + Grafana** — richer application metrics beyond CloudWatch (p99 latencies, queue depth, custom business metrics)
+8. **Secrets rotation** — automatic RDS password rotation via Secrets Manager Lambda
 
 ## AI Usage Disclosure
 
