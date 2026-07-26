@@ -170,3 +170,29 @@ resource "aws_iam_role_policy_attachment" "terraform_state" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.terraform_state.arn
 }
+
+# ─────────────────────────────────────────────────────────────
+# SNS Publish Policy (deployment notifications)
+# ─────────────────────────────────────────────────────────────
+
+resource "aws_iam_policy" "sns_publish" {
+  name = "${var.environment}-github-sns-publish"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:Publish"
+        ]
+        Resource = var.sns_topic_arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "sns_publish" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.sns_publish.arn
+}

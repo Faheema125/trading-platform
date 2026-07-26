@@ -18,3 +18,8 @@ output "cert_validation_records" {
   description = "Add these CNAME records in your DNS to validate the certificate"
   value       = module.dns.domain_validation_options
 }
+
+output "sns_topic_arn" {
+  description = "SNS topic ARN for deployment notifications"
+  value       = module.observability.sns_topic_arn
+}

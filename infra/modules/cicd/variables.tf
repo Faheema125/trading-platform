@@ -38,3 +38,8 @@ variable "terraform_lock_table" {
   description = "DynamoDB table name for Terraform state locking"
   type        = string
 }
+
+variable "sns_topic_arn" {
+  description = "SNS topic ARN for deployment notifications"
+  type        = string
+}

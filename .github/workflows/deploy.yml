@@ -109,6 +109,54 @@ jobs:
             --services dev-worker
           echo "All services stable!"
 
+      - name: Send deployment notification (success)
+        if: success()
+        env:
+          SNS_TOPIC_ARN: ${{ secrets.SNS_TOPIC_ARN }}
+        run: |
+          aws sns publish \
+            --topic-arn "$SNS_TOPIC_ARN" \
+            --subject "[SUCCEEDED] Deploy: trading-platform (${{ github.ref_name }})" \
+            --message "$(cat <<EOF
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          🚀 DEPLOYMENT NOTIFICATION
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          Status:       ✅ SUCCEEDED
+          Application:  trading-platform
+          Environment:  dev
+          Branch:       ${{ github.ref_name }}
+          Triggered by: ${{ github.actor }}
+          Commit:       ${{ github.sha }}
+          Region:       ${{ env.AWS_REGION }}
+          Pipeline:     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          EOF
+          )"
+
+      - name: Send deployment notification (failure)
+        if: failure()
+        env:
+          SNS_TOPIC_ARN: ${{ secrets.SNS_TOPIC_ARN }}
+        run: |
+          aws sns publish \
+            --topic-arn "$SNS_TOPIC_ARN" \
+            --subject "[FAILED] Deploy: trading-platform (${{ github.ref_name }})" \
+            --message "$(cat <<EOF
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          🚨 DEPLOYMENT NOTIFICATION
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          Status:       ❌ FAILED
+          Application:  trading-platform
+          Environment:  dev
+          Branch:       ${{ github.ref_name }}
+          Triggered by: ${{ github.actor }}
+          Commit:       ${{ github.sha }}
+          Region:       ${{ env.AWS_REGION }}
+          Pipeline:     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          EOF
+          )"
+
   deploy-prod:
     name: Deploy to Prod (Plan only)
     needs: [build, deploy-dev]
