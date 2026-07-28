@@ -53,15 +53,15 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 
 resource "aws_cloudwatch_metric_alarm" "unhealthy_targets" {
   alarm_name          = "${var.environment}-unhealthy-targets"
-  alarm_description   = "No healthy API targets available"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "HealthyHostCount"
+  alarm_description   = "One or more API targets are unhealthy"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "UnHealthyHostCount"
   namespace           = "AWS/ApplicationELB"
   period              = 60
-  statistic           = "Minimum"
-  threshold           = 1
-  treat_missing_data  = "breaching"
+  statistic           = "Maximum"
+  threshold           = 0
+  treat_missing_data  = "notBreaching"
 
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
