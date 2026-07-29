@@ -102,9 +102,9 @@ resource "aws_db_instance" "main" {
   publicly_accessible = false
   storage_encrypted   = true
 
-  backup_retention_period = var.backup_retention_period
-  deletion_protection     = var.deletion_protection
-  skip_final_snapshot     = var.environment == "dev" ? true : false
+  backup_retention_period   = var.backup_retention_period
+  deletion_protection       = var.deletion_protection
+  skip_final_snapshot       = var.environment == "dev" ? true : false
   final_snapshot_identifier = var.environment == "dev" ? null : "${var.environment}-trading-db-final"
 
   tags = {

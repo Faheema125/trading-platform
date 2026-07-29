@@ -57,14 +57,14 @@ resource "aws_security_group" "ecs_tasks" {
   }
 }
 
-# ALB → API traffic on port 8080
+# ALB → API traffic on port 8080 (only the ALB, not the whole internet)
 resource "aws_security_group_rule" "api_ingress" {
-  type              = "ingress"
-  from_port         = 8080
-  to_port           = 8080
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.ecs_tasks.id
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = var.alb_security_group_id
+  security_group_id        = aws_security_group.ecs_tasks.id
 }
 
 # Inter-task NATS traffic on port 4222

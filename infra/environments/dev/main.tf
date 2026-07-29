@@ -100,9 +100,10 @@ module "alb" {
 module "ecs_cluster" {
   source = "../../modules/ecs-cluster"
 
-  environment = "dev"
-  vpc_id      = module.vpc.vpc_id
-  secret_arns = [module.rds.password_secret_arn]
+  environment           = "dev"
+  vpc_id                = module.vpc.vpc_id
+  secret_arns           = [module.rds.password_secret_arn]
+  alb_security_group_id = module.alb.security_group_id
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -130,8 +131,8 @@ module "nats" {
   readonly_root_filesystem = false
   enable_circuit_breaker   = false
 
-  enable_service_discovery        = true
-  service_discovery_namespace_id  = module.ecs_cluster.service_discovery_namespace_id
+  enable_service_discovery       = true
+  service_discovery_namespace_id = module.ecs_cluster.service_discovery_namespace_id
 }
 
 module "api" {

@@ -73,15 +73,15 @@ module "vpc" {
 module "rds" {
   source = "../../modules/rds"
 
-  environment                = "prod"
-  vpc_id                     = module.vpc.vpc_id
-  private_subnet_ids         = module.vpc.private_subnet_ids
-  vpc_cidr                   = "10.1.0.0/16"
-  instance_class             = "db.t3.small"
-  allocated_storage          = 50
-  multi_az                   = true
-  deletion_protection        = true
-  backup_retention_period    = 7
+  environment             = "prod"
+  vpc_id                  = module.vpc.vpc_id
+  private_subnet_ids      = module.vpc.private_subnet_ids
+  vpc_cidr                = "10.1.0.0/16"
+  instance_class          = "db.t3.small"
+  allocated_storage       = 50
+  multi_az                = true
+  deletion_protection     = true
+  backup_retention_period = 7
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -104,9 +104,10 @@ module "alb" {
 module "ecs_cluster" {
   source = "../../modules/ecs-cluster"
 
-  environment = "prod"
-  vpc_id      = module.vpc.vpc_id
-  secret_arns = [module.rds.password_secret_arn]
+  environment           = "prod"
+  vpc_id                = module.vpc.vpc_id
+  secret_arns           = [module.rds.password_secret_arn]
+  alb_security_group_id = module.alb.security_group_id
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -134,8 +135,8 @@ module "nats" {
   readonly_root_filesystem = false
   enable_circuit_breaker   = false
 
-  enable_service_discovery        = true
-  service_discovery_namespace_id  = module.ecs_cluster.service_discovery_namespace_id
+  enable_service_discovery       = true
+  service_discovery_namespace_id = module.ecs_cluster.service_discovery_namespace_id
 }
 
 module "api" {
